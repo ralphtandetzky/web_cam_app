@@ -5,6 +5,8 @@
 #include "../qt_utils/invoke_in_thread.h"
 #include "../qt_utils/loop_thread.h"
 
+#include "../cpp_utils/exception.h"
+
 #include <cassert>
 #include <QGraphicsScene>
 #include <QGraphicsVideoItem>
@@ -16,15 +18,16 @@ namespace gui {
 struct WebCamMainWindow::Impl
 {
     Ui::WebCamMainWindow ui;
-    std::unique_ptr<QCamera> cam;
+    std::unique_ptr<QCamera> webCam;
     QGraphicsScene scene;
+    QGraphicsVideoItem videoItem;
     qu::LoopThread worker;
 
     // Makes sure the scene is always shown as big as possible.
     void makeSceneFitToView();
 
     // Puts a video display into the scene.
-    void putVideoItemIntoScene();
+    void connectWebCamToVideoItemAsync();
 };
 
 
@@ -34,7 +37,14 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
 {
     m->ui.setupUi(this);
     m->makeSceneFitToView();
-    m->putVideoItemIntoScene();
+
+    // put mirrored item into a QGraphicsScene.
+    m->videoItem.setMatrix( QMatrix(-1,0,0,1,0,0),true );
+    m->scene.addItem( &m->videoItem );
+
+    m->connectWebCamToVideoItemAsync();
+
+    // put scene into graphicsView.
     m->ui.graphicsView->setScene(&m->scene);
 }
 
@@ -62,7 +72,7 @@ void WebCamMainWindow::Impl::makeSceneFitToView()
 }
 
 
-void WebCamMainWindow::Impl::putVideoItemIntoScene()
+void WebCamMainWindow::Impl::connectWebCamToVideoItemAsync()
 {
     // switch to worker thread.
     qu::invokeInThread( &worker, [this](){
@@ -70,33 +80,20 @@ void WebCamMainWindow::Impl::putVideoItemIntoScene()
     const auto cams = QCameraInfo::availableCameras();
     const auto nCams = cams.count();
 
-    // show number of cameras in statusbar.
+    CU_ENFORCE( nCams > 0, "No cameras could be detected." )
+
+    // initialize camera.
+    webCam.reset( new QCamera(cams.front()) );
+    webCam->moveToThread( QCoreApplication::instance()->thread() );
+
+    // switch back to gui thread
     qu::invokeInGuiThread( [this,nCams](){
-        ui.statusbar->showMessage(
-                    QString("Found %1 camera(s).").arg(nCams) );
-    } );
 
-    if ( nCams > 0 )
-    {
-        // initialize camera.
-        cam.reset( new QCamera(cams.front()) );
-        cam->moveToThread( QCoreApplication::instance()->thread() );
+    // set QGraphicsItem as view finder and start capturing images.
+    webCam->setViewfinder( &videoItem );
+    webCam->start();
 
-        // switch to gui thread
-        qu::invokeInGuiThread( [this,nCams](){
-
-        // set QGraphicsItem as view finder and start capturing images.
-        auto item = std::make_unique<QGraphicsVideoItem>();
-        cam->setViewfinder( item.get() );
-        cam->start();
-
-        // put mirrored item into a QGraphicsScene.
-        item->setMatrix( QMatrix(-1,0,0,1,0,0),true );
-        scene.addItem(item.get());
-        item.release();
-
-        } ); // end of gui thread execution
-    }
+    } ); // end of gui thread execution
     } ); // end of worker thread execution
 }
 
