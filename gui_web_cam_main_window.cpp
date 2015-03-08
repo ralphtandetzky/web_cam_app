@@ -2,6 +2,7 @@
 #include "ui_gui_web_cam_main_window.h"
 
 #include "../qt_utils/event_filter.h"
+#include "../qt_utils/event_handling_graphics_item.h"
 #include "../qt_utils/invoke_in_thread.h"
 #include "../qt_utils/loop_thread.h"
 
@@ -9,6 +10,7 @@
 
 #include <cassert>
 #include <QGraphicsScene>
+#include <QGraphicsSceneMouseEvent>
 #include <QGraphicsVideoItem>
 #include <QPointer>
 #include <QtMultimedia/QCameraInfo>
@@ -21,6 +23,7 @@ struct WebCamMainWindow::Impl
     std::unique_ptr<QCamera> webCam;
     QGraphicsScene scene;
     QGraphicsVideoItem videoItem;
+    qu::EventHandlingGraphicsItem<QGraphicsRectItem> rect;
     qu::LoopThread worker;
 
     // Makes sure the scene is always shown as big as possible.
@@ -36,6 +39,26 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
     m(new Impl)
 {
     m->ui.setupUi(this);
+
+    m->rect.setParentItem( &m->videoItem );
+    const auto updateRectSize = [this]()
+    {
+        const QRectF parentRect = m->rect.parentItem()->boundingRect();
+
+        const auto rectX = parentRect.center().x();
+        const auto rectY = parentRect.center().y() + 0.4*parentRect.height();
+        const auto rectSize = std::min(
+            parentRect.width()*2,
+            parentRect.height()) * 0.15;
+        m->rect.setRect(
+            rectX-rectSize*0.8,
+            rectY-rectSize*0.5,
+            rectSize*1.6,
+            rectSize );
+    };
+    connect( &m->videoItem, &QGraphicsVideoItem::nativeSizeChanged,
+             this, updateRectSize );
+
     m->connectWebCamToVideoItemAsync();
 
     // put mirrored item into a QGraphicsScene.
@@ -46,6 +69,17 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
 
     // put scene into graphicsView.
     m->ui.graphicsView->setScene(&m->scene);
+
+    m->rect.setFlag( QGraphicsItem::ItemIsSelectable );
+    m->rect.setMousePressEventHandler(
+        [this]( qu::EventHandlingGraphicsItem<QGraphicsRectItem> *,
+                QGraphicsSceneMouseEvent * event)
+    {
+        if ( event->button() != Qt::LeftButton )
+            return;
+
+        m->videoItem.setMatrix( QMatrix(-1,0,0,1,m->videoItem.boundingRect().width(),0),true );
+    });
 }
 
 
