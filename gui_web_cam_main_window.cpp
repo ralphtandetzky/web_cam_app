@@ -92,13 +92,13 @@ void WebCamMainWindow::Impl::makeSceneFitToView()
 {
     auto view = QPointer<QGraphicsView>(ui.graphicsView);
     qu::installEventFilter( ui.graphicsView,
-                            [view]( QObject *, QEvent * event )
+                            [view,this]( QObject *, QEvent * event )
     {
         if ( event->type() == QEvent::Paint
              && !view.isNull()
              && view->scene() )
         {
-            view->fitInView( view->sceneRect(),
+            view->fitInView( videoItem.boundingRect(),
                              Qt::KeepAspectRatio );
         }
 
