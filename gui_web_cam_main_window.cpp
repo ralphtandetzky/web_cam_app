@@ -61,6 +61,7 @@ void WebCamMainWindow::Impl::makeSceneFitToView()
                             [view]( QObject *, QEvent * event )
     {
         if ( event->type() == QEvent::Paint
+             && !view.isNull()
              && view->scene() )
         {
             view->fitInView( view->sceneRect(),
