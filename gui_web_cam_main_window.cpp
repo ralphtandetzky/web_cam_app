@@ -21,7 +21,7 @@ struct WebCamMainWindow::Impl
     qu::LoopThread worker;
 
     // Makes sure the scene is always shown as big as possible.
-    void makeVideoFitToView();
+    void makeSceneFitToView();
 
     // Puts a video display into the scene.
     void putVideoItemIntoScene();
@@ -33,7 +33,7 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
     m(new Impl)
 {
     m->ui.setupUi(this);
-    m->makeVideoFitToView();
+    m->makeSceneFitToView();
     m->putVideoItemIntoScene();
     m->ui.graphicsView->setScene(&m->scene);
 }
@@ -44,7 +44,7 @@ WebCamMainWindow::~WebCamMainWindow()
 }
 
 
-void WebCamMainWindow::Impl::makeVideoFitToView()
+void WebCamMainWindow::Impl::makeSceneFitToView()
 {
     auto view = QPointer<QGraphicsView>(ui.graphicsView);
     qu::installEventFilter( ui.graphicsView,
