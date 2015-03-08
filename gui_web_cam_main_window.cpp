@@ -24,29 +24,37 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
 {
     m->ui.setupUi(this);
 
+    // switch to worker thread.
     qu::invokeInThread( &m->worker, [this](){
 
     const auto cams = QCameraInfo::availableCameras();
     const auto nCams = cams.count();
+
+    // show number of cameras in statusbar.
+    qu::invokeInGuiThread( [this,nCams](){
+        m->ui.statusbar->showMessage(
+                    QString("Found %1 camera(s).").arg(nCams) );
+    } );
+
     if ( nCams > 0 )
     {
-
+        // initialize camera.
         m->cam.reset( new QCamera(cams.front()) );
         m->cam->moveToThread( QCoreApplication::instance()->thread() );
 
+        // switch to gui thread
         qu::invokeInGuiThread( [this,nCams](){
 
-        m->ui.statusbar->showMessage(
-                    QString("Found %1 camera(s).").arg(nCams) );
+        // set view window and start capturing frames
         assert( QThread::currentThread()   == QCoreApplication::instance()->thread() );
         assert( m->cam          ->thread() == QCoreApplication::instance()->thread() );
         assert( m->ui.viewFinder->thread() == QCoreApplication::instance()->thread() );
         m->cam->setViewfinder( m->ui.viewFinder );
         m->cam->start();
 
-        } );
+        } ); // end of gui thread execution
     }
-    } );
+    } ); // end of worker thread execution
 }
 
 WebCamMainWindow::~WebCamMainWindow()
