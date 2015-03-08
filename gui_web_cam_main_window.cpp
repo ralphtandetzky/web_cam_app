@@ -36,13 +36,13 @@ WebCamMainWindow::WebCamMainWindow(QWidget *parent) :
     m(new Impl)
 {
     m->ui.setupUi(this);
-    m->makeSceneFitToView();
+    m->connectWebCamToVideoItemAsync();
 
     // put mirrored item into a QGraphicsScene.
     m->videoItem.setMatrix( QMatrix(-1,0,0,1,0,0),true );
     m->scene.addItem( &m->videoItem );
 
-    m->connectWebCamToVideoItemAsync();
+    m->makeSceneFitToView();
 
     // put scene into graphicsView.
     m->ui.graphicsView->setScene(&m->scene);
